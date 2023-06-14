@@ -4,51 +4,47 @@ a plugin for Trac to provide content alongside the ticket
 http://trac.edgewall.org/wiki/TracTicketsCustomFields
 """
 
-from genshi.builder import tag
-from genshi.filters import Transformer
+from trac.util.html import html as tag
 from pkg_resources import resource_filename
 
 from trac.config import Option
 from trac.core import *
-from trac.web.api import ITemplateStreamFilter
-from trac.web.chrome import add_stylesheet
+from trac.web.api import IRequestFilter
+from trac.web.chrome import add_script, add_script_data, add_stylesheet
 from trac.web.chrome import ITemplateProvider
 
 from ticketsidebarprovider.interface import ITicketSidebarProvider
 
+from .jtransformer import JTransformer
+
 
 class TicketSidebarProvider(Component):
 
-    implements(ITemplateStreamFilter, ITemplateProvider)
+    implements(IRequestFilter, ITemplateProvider)
 
     providers = ExtensionPoint(ITicketSidebarProvider)
 
-    ### method for ITemplateStreamFilter : 
-    ### Filter a Genshi event stream prior to rendering.
+    def pre_process_request(self, req, handler):
+        return handler
 
-    def filter_stream(self, req, method, filename, stream, data):
-        """Return a filtered Genshi event stream, or the original unfiltered
-        stream if no match.
+    def post_process_request(self, req, template, data, content_type):
 
-        `req` is the current request object, `method` is the Genshi render
-        method (xml, xhtml or text), `filename` is the filename of the template
-        to be rendered, `stream` is the event stream and `data` is the data for
-        the current template.
-
-        See the Genshi documentation for more information.
-        """
-
-        if filename != 'ticket.html':
-            return stream
+        if template != 'ticket.html':
+            return template, data, content_type
 
         ticket = data['ticket']
+        filter_lst = []
         for provider in self.providers: # TODO : sorting
             if provider.enabled(req, ticket):
-                add_stylesheet(req, 'common/css/ticket-sidebar.css')
-                filter = Transformer('//div[@id="content"]')
-                stream |= filter.after(tag.div(provider.content(req, ticket),
-                                               **{'class': "sidebar" }))
-        return stream
+                filter = JTransformer('div#content')
+                filter_lst.append(
+                    filter.after(str(tag.div(provider.content(req, ticket),
+                                             **{'class': "sidebar" })))
+                )
+        add_stylesheet(req, 'common/css/ticket-sidebar.css')
+        add_script_data(req, {'tsbp_filter': filter_lst})
+        add_script(req, 'common/js/ct_jtransform.js')
+        return template, data, content_type
 
     def get_htdocs_dirs(self):
         """Return a list of directories with static resources (such as style

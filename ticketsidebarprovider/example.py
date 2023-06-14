@@ -2,9 +2,10 @@
 example of a TicketSidebarProvider
 """
 
-from genshi.builder import tag
-from .interface import ITicketSidebarProvider
+from trac.util.html import html as tag
 from trac.core import *
+
+from .interface import ITicketSidebarProvider
 
 class SampleTicketSidebarProvider(Component):
     implements(ITicketSidebarProvider)
