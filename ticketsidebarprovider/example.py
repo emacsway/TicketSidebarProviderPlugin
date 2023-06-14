@@ -3,7 +3,7 @@ example of a TicketSidebarProvider
 """
 
 from genshi.builder import tag
-from interface import ITicketSidebarProvider
+from .interface import ITicketSidebarProvider
 from trac.core import *
 
 class SampleTicketSidebarProvider(Component):
